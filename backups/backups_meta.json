@@ -1,0 +1,49 @@
+{
+  "snapshots": [
+    {
+      "id": "manual_20261116_222150",
+      "title": "ทดสอบสร้างจุดสำรอง",
+      "days_ago": 0,
+      "filename": "manual_20261116_222150.db",
+      "created_at": "16/11/2026 22:21:50",
+      "iso_date": "2026-11-16T22:21:50.034233",
+      "farmers_count": 5,
+      "ponds_count": 6,
+      "size_kb": 40.0,
+      "is_manual": true
+    },
+    {
+      "id": "1day",
+      "title": "ย้อนข้อมูล 1 วันที่แล้ว",
+      "days_ago": 1,
+      "filename": "snapshot_1day.db",
+      "created_at": "15/11/2026 22:18:42",
+      "iso_date": "2026-11-15T22:18:42.096970",
+      "farmers_count": 5,
+      "ponds_count": 6,
+      "size_kb": 40.0
+    },
+    {
+      "id": "3days",
+      "title": "ย้อนข้อมูล 3 วันที่แล้ว",
+      "days_ago": 3,
+      "filename": "snapshot_3days.db",
+      "created_at": "13/11/2026 22:18:42",
+      "iso_date": "2026-11-13T22:18:42.096970",
+      "farmers_count": 5,
+      "ponds_count": 6,
+      "size_kb": 40.0
+    },
+    {
+      "id": "7days",
+      "title": "ย้อนข้อมูล 7 วันที่แล้ว",
+      "days_ago": 7,
+      "filename": "snapshot_7days.db",
+      "created_at": "09/11/2026 22:18:42",
+      "iso_date": "2026-11-09T22:18:42.096970",
+      "farmers_count": 5,
+      "ponds_count": 6,
+      "size_kb": 40.0
+    }
+  ]
+}

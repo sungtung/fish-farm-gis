@@ -1,0 +1,312 @@
+/* Custom styles for Fish Farm GIS Tracker */
+
+body {
+  font-family: 'Prompt', 'Sarabun', sans-serif;
+}
+
+.custom-div-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Custom Marker Pins (Generic) */
+.custom-pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+  border: 2px solid #ffffff;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+}
+
+.custom-pin:hover {
+  transform: rotate(-45deg) scale(1.15);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45);
+}
+
+.custom-pin i {
+  transform: rotate(45deg);
+  color: #ffffff;
+  font-size: 14px;
+}
+
+/* Farmer Photo Pin on Map (Modern Avatar Pointer) */
+.farmer-photo-pin {
+  position: relative;
+  width: 44px;
+  height: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.25s ease;
+  cursor: pointer;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.38));
+}
+
+.farmer-photo-pin:hover {
+  transform: translateY(-4px) scale(1.15);
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.5));
+  z-index: 1000 !important;
+}
+
+.farmer-photo-img-wrap {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  overflow: hidden;
+  background-color: #ffffff;
+  border: 3px solid #10b981;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.farmer-photo-pin.pin-active .farmer-photo-img-wrap {
+  border-color: #10b981;
+}
+
+.farmer-photo-pin.pin-preparing .farmer-photo-img-wrap {
+  border-color: #f59e0b;
+}
+
+.farmer-photo-pin.pin-harvested .farmer-photo-img-wrap {
+  border-color: #3b82f6;
+}
+
+.farmer-photo-pin.pin-resting .farmer-photo-img-wrap {
+  border-color: #94a3b8;
+}
+
+.farmer-photo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.farmer-photo-subbadge {
+  position: absolute;
+  top: -2px;
+  right: 0px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #0284c7;
+  color: #ffffff;
+  border: 2px solid #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+}
+
+.farmer-photo-pin.pin-active .farmer-photo-subbadge {
+  background: #059669;
+}
+
+.farmer-photo-pin.pin-preparing .farmer-photo-subbadge {
+  background: #d97706;
+}
+
+.farmer-photo-pin.pin-harvested .farmer-photo-subbadge {
+  background: #2563eb;
+}
+
+.farmer-photo-pin.pin-resting .farmer-photo-subbadge {
+  background: #64748b;
+}
+
+.farmer-photo-arrow {
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 8px solid #10b981;
+  margin-top: -2px;
+}
+
+.farmer-photo-pin.pin-active .farmer-photo-arrow {
+  border-top-color: #10b981;
+}
+
+.farmer-photo-pin.pin-preparing .farmer-photo-arrow {
+  border-top-color: #f59e0b;
+}
+
+.farmer-photo-pin.pin-harvested .farmer-photo-arrow {
+  border-top-color: #3b82f6;
+}
+
+.farmer-photo-pin.pin-resting .farmer-photo-arrow {
+  border-top-color: #94a3b8;
+}
+
+/* Pin Status Colors */
+.pin-active {
+  background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.pin-preparing {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.pin-harvested {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+}
+
+.pin-resting {
+  background: linear-gradient(135deg, #94a3b8, #64748b);
+}
+
+/* Temp pick pin */
+.pin-temp {
+  background: linear-gradient(135deg, #ec4899, #be185d);
+  animation: bounce 1s infinite alternate;
+}
+
+@keyframes bounce {
+  0% { transform: rotate(-45deg) translateY(0); }
+  100% { transform: rotate(-45deg) translateY(-8px); }
+}
+
+/* Leaflet Popup Customization (Auto-expand and flexible width) */
+.leaflet-popup-content-wrapper {
+  border-radius: 14px !important;
+  box-shadow: 0 12px 28px -4px rgba(0, 0, 0, 0.28) !important;
+  padding: 0 !important;
+  overflow: hidden;
+  max-width: 90vw !important;
+  width: auto !important;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+  line-height: 1.5;
+  font-family: 'Prompt', 'Sarabun', sans-serif;
+  width: auto !important;
+  min-width: 290px;
+  max-width: 440px;
+  box-sizing: border-box;
+}
+
+.leaflet-popup-close-button {
+  top: 8px !important;
+  right: 8px !important;
+  color: #64748b !important;
+  font-size: 16px !important;
+  width: 24px !important;
+  height: 24px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 9999px !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+  z-index: 30 !important;
+  transition: all 0.2s ease;
+}
+
+.leaflet-popup-close-button:hover {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+/* Leaflet Popup Navigation Button (High Contrast White Text on Vibrant Blue) */
+.leaflet-popup-content a.btn-nav-google,
+.leaflet-popup-content a.btn-nav-google *,
+.btn-nav-google,
+.btn-nav-google span,
+.btn-nav-google i {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+  text-decoration: none !important;
+}
+
+.btn-nav-google {
+  background-color: #0284c7 !important;
+  background-image: linear-gradient(135deg, #0284c7, #1d4ed8) !important;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35) !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25) !important;
+}
+
+.btn-nav-google:hover {
+  background-image: linear-gradient(135deg, #0369a1, #1e40af) !important;
+}
+
+/* Active map layer button */
+.active-layer {
+  background-color: #0284c7 !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+/* Province Boundary Tooltip */
+.province-boundary-line {
+  filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.7));
+}
+
+.province-tooltip {
+  background: rgba(15, 23, 42, 0.9) !important;
+  color: #fbbf24 !important;
+  font-family: 'Prompt', sans-serif !important;
+  border: 1px solid #f59e0b !important;
+  border-radius: 8px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Print optimizations */
+@media print {
+  header, #statsBar, .leaflet-control-container, button, .no-print, #mediaModal, #farmerModal, #pondModal {
+    display: none !important;
+  }
+  body {
+    background: #ffffff !important;
+  }
+  #map {
+    height: 400px !important;
+  }
+  .lg\:col-span-5 {
+    width: 100% !important;
+  }
+}
+
+/* User GPS Pulse Marker */
+.user-location-marker {
+  position: relative;
+  width: 22px;
+  height: 22px;
+}
+.user-core-dot {
+  width: 14px;
+  height: 14px;
+  background-color: #0284c7;
+  border: 2.5px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+  position: absolute;
+  top: 4px;
+  left: 4px;
+}
+.pulse-ring {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background-color: rgba(2, 132, 199, 0.45);
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  animation: gpsPulse 2s infinite ease-out;
+}
+@keyframes gpsPulse {
+  0% { transform: scale(0.6); opacity: 1; }
+  100% { transform: scale(1.7); opacity: 0; }
+}
