@@ -22,8 +22,16 @@ DOCS_DIR = os.path.join(UPLOAD_DIR, "documents")
 os.makedirs(PHOTOS_DIR, exist_ok=True)
 os.makedirs(DOCS_DIR, exist_ok=True)
 
-SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_FILE}"
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+raw_db_url = os.environ.get("DATABASE_URL")
+if raw_db_url:
+    if raw_db_url.startswith("postgres://"):
+        raw_db_url = raw_db_url.replace("postgres://", "postgresql://", 1)
+    SQLALCHEMY_DATABASE_URL = raw_db_url
+    engine = create_engine(SQLALCHEMY_DATABASE_URL, pool_pre_ping=True)
+else:
+    SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_FILE}"
+    engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
