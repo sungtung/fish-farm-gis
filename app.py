@@ -4,11 +4,11 @@ import uuid
 import json
 from datetime import datetime
 from typing import List, Optional
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Header
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Header, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import create_engine, Column, Integer, Float, String, Text, DateTime, ForeignKey, or_
+from sqlalchemy import create_engine, Column, Integer, Float, String, Text, DateTime, ForeignKey, or_, text
 from sqlalchemy.orm import declarative_base, sessionmaker, Session, relationship
 import csv
 import io
@@ -308,7 +308,32 @@ def seed_initial_data():
             db.commit()
     db.close()
 
+def fix_postgres_sequences():
+    if "postgresql" in str(engine.url):
+        try:
+            with engine.begin() as conn:
+                conn.execute(text("""
+                    DO $$
+                    BEGIN
+                        IF EXISTS (SELECT 1 FROM pg_sequences WHERE sequencename = 'farmers_id_seq') THEN
+                            PERFORM setval('farmers_id_seq', COALESCE((SELECT MAX(id) FROM farmers), 1), true);
+                        END IF;
+                        IF EXISTS (SELECT 1 FROM pg_sequences WHERE sequencename = 'ponds_id_seq') THEN
+                            PERFORM setval('ponds_id_seq', COALESCE((SELECT MAX(id) FROM ponds), 1), true);
+                        END IF;
+                        IF EXISTS (SELECT 1 FROM pg_sequences WHERE sequencename = 'pond_photos_id_seq') THEN
+                            PERFORM setval('pond_photos_id_seq', COALESCE((SELECT MAX(id) FROM pond_photos), 1), true);
+                        END IF;
+                        IF EXISTS (SELECT 1 FROM pg_sequences WHERE sequencename = 'pond_documents_id_seq') THEN
+                            PERFORM setval('pond_documents_id_seq', COALESCE((SELECT MAX(id) FROM pond_documents), 1), true);
+                        END IF;
+                    END $$;
+                """))
+        except Exception as e:
+            print("Postgres sequence sync notice:", e)
+
 seed_initial_data()
+fix_postgres_sequences()
 
 # --- FastAPI Application ---
 
@@ -331,6 +356,29 @@ async def add_no_cache_headers(request, call_next):
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
     return response
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    import traceback
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": f"ข้อผิดพลาดของระบบ: {str(exc)}",
+            "error_type": type(exc).__name__,
+            "traceback": traceback.format_exc()
+        }
+    )
+
+@app.get("/api/db-status")
+def get_db_status(db: Session = Depends(get_db)):
+    db_type = "postgresql" if "postgresql" in str(engine.url) else "sqlite"
+    return {
+        "status": "healthy",
+        "engine": db_type,
+        "database_url_set": bool(os.environ.get("DATABASE_URL")),
+        "farmers_count": db.query(Farmer).count(),
+        "ponds_count": db.query(Pond).count()
+    }
 
 # Static files mounts
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
@@ -607,21 +655,47 @@ def create_farmer(
     db: Session = Depends(get_db),
     admin_ok: bool = Depends(verify_admin)
 ):
-    farmer = Farmer(
-        citizen_id=citizen_id,
-        name=name,
-        phone=phone,
-        birth_date=birth_date,
-        address=address,
-        subdistrict=subdistrict,
-        district=district,
-        province=province,
-        notes=notes
-    )
-    db.add(farmer)
-    db.commit()
-    db.refresh(farmer)
-    return {"status": "success", "id": farmer.id, "message": "บันทึกข้อมูลเกษตรกรเรียบร้อย"}
+    try:
+        farmer = Farmer(
+            citizen_id=citizen_id,
+            name=name,
+            phone=phone,
+            birth_date=birth_date,
+            address=address,
+            subdistrict=subdistrict,
+            district=district,
+            province=province,
+            notes=notes
+        )
+        db.add(farmer)
+        db.commit()
+        db.refresh(farmer)
+        return {"status": "success", "id": farmer.id, "name": farmer.name, "message": "บันทึกข้อมูลเกษตรกรเรียบร้อย"}
+    except Exception as e:
+        db.rollback()
+        err_msg = str(e)
+        if "postgresql" in str(engine.url) and ("unique constraint" in err_msg.lower() or "duplicate key" in err_msg.lower() or "pkey" in err_msg.lower()):
+            try:
+                fix_postgres_sequences()
+                farmer = Farmer(
+                    citizen_id=citizen_id,
+                    name=name,
+                    phone=phone,
+                    birth_date=birth_date,
+                    address=address,
+                    subdistrict=subdistrict,
+                    district=district,
+                    province=province,
+                    notes=notes
+                )
+                db.add(farmer)
+                db.commit()
+                db.refresh(farmer)
+                return {"status": "success", "id": farmer.id, "name": farmer.name, "message": "บันทึกข้อมูลเกษตรกรเรียบร้อย"}
+            except Exception as retry_e:
+                db.rollback()
+                raise HTTPException(status_code=500, detail=f"เกิดข้อผิดพลาดในการบันทึกเกษตรกร: {str(retry_e)}")
+        raise HTTPException(status_code=500, detail=f"เกิดข้อผิดพลาดในการบันทึกเกษตรกร: {err_msg}")
 
 
 @app.put("/api/farmers/{farmer_id}")
@@ -810,28 +884,61 @@ def create_pond(
     if not farmer:
         raise HTTPException(status_code=400, detail="ไม่พบข้อมูลเกษตรกรที่ระบุ")
 
-    pond = Pond(
-        farmer_id=farmer_id,
-        name=name,
-        latitude=latitude,
-        longitude=longitude,
-        area_rai=area_rai,
-        area_ngan=area_ngan,
-        area_sqwa=area_sqwa,
-        pond_type=pond_type,
-        depth_meters=depth_meters,
-        fish_species=fish_species,
-        stock_count=stock_count,
-        stock_date=stock_date,
-        harvest_date=harvest_date,
-        water_source=water_source,
-        status=status,
-        notes=notes
-    )
-    db.add(pond)
-    db.commit()
-    db.refresh(pond)
-    return {"status": "success", "id": pond.id, "message": "บันทึกพิกัดและข้อมูลบ่อปลาสำเร็จ"}
+    try:
+        pond = Pond(
+            farmer_id=farmer_id,
+            name=name,
+            latitude=latitude,
+            longitude=longitude,
+            area_rai=area_rai,
+            area_ngan=area_ngan,
+            area_sqwa=area_sqwa,
+            pond_type=pond_type,
+            depth_meters=depth_meters,
+            fish_species=fish_species,
+            stock_count=stock_count,
+            stock_date=stock_date,
+            harvest_date=harvest_date,
+            water_source=water_source,
+            status=status,
+            notes=notes
+        )
+        db.add(pond)
+        db.commit()
+        db.refresh(pond)
+        return {"status": "success", "id": pond.id, "message": "บันทึกพิกัดและข้อมูลบ่อปลาสำเร็จ"}
+    except Exception as e:
+        db.rollback()
+        err_msg = str(e)
+        if "postgresql" in str(engine.url) and ("unique constraint" in err_msg.lower() or "duplicate key" in err_msg.lower() or "pkey" in err_msg.lower()):
+            try:
+                fix_postgres_sequences()
+                pond = Pond(
+                    farmer_id=farmer_id,
+                    name=name,
+                    latitude=latitude,
+                    longitude=longitude,
+                    area_rai=area_rai,
+                    area_ngan=area_ngan,
+                    area_sqwa=area_sqwa,
+                    pond_type=pond_type,
+                    depth_meters=depth_meters,
+                    fish_species=fish_species,
+                    stock_count=stock_count,
+                    stock_date=stock_date,
+                    harvest_date=harvest_date,
+                    water_source=water_source,
+                    status=status,
+                    notes=notes
+                )
+                db.add(pond)
+                db.commit()
+                db.refresh(pond)
+                return {"status": "success", "id": pond.id, "message": "บันทึกพิกัดและข้อมูลบ่อปลาสำเร็จ"}
+            except Exception as retry_e:
+                db.rollback()
+                raise HTTPException(status_code=500, detail=f"เกิดข้อผิดพลาดในการบันทึกบ่อปลา: {str(retry_e)}")
+        raise HTTPException(status_code=500, detail=f"เกิดข้อผิดพลาดในการบันทึกบ่อปลา: {err_msg}")
 
 
 @app.put("/api/ponds/{pond_id}")

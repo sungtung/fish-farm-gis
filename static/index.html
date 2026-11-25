@@ -544,6 +544,11 @@
       <form id="pondForm" onsubmit="savePond(event)" class="p-6 overflow-y-auto space-y-4 text-xs">
         <input type="hidden" id="pondId" value="">
 
+        <div id="pondDraftNotice" class="hidden p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-xs flex items-center justify-between shadow-sm">
+          <span><i class="fa-solid fa-clock-rotate-left mr-1.5 text-amber-600"></i><strong>กู้คืนแบบร่าง:</strong> ระบบดึงข้อมูลและพิกัดบ่อปลาที่คุณพิมพ์ค้างไว้กลับมาให้แล้ว</span>
+          <button type="button" onclick="clearPondDraftAndReset()" class="text-rose-600 hover:text-rose-800 hover:underline font-semibold text-xs ml-2">ล้างแบบร่าง</button>
+        </div>
+
         <!-- 1. General Farmer Selection (แสดงเฉพาะเมื่อกด + เพิ่มพิกัดบ่อใหม่ทั่วไป) -->
         <div id="pondFarmerSelectSection">
           <label class="block font-semibold text-slate-700 mb-1">
@@ -886,6 +891,11 @@
 
           <form id="farmerForm" onsubmit="saveFarmer(event)" class="space-y-3">
             <input type="hidden" id="farmerId" value="">
+
+            <div id="farmerDraftNotice" class="hidden p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-xs flex items-center justify-between shadow-sm">
+              <span><i class="fa-solid fa-clock-rotate-left mr-1.5 text-amber-600"></i><strong>กู้คืนแบบร่าง:</strong> ระบบดึงข้อมูลเกษตรกรที่คุณพิมพ์ค้างไว้กลับมาให้แล้ว</span>
+              <button type="button" onclick="clearFarmerDraftAndReset()" class="text-rose-600 hover:text-rose-800 hover:underline font-semibold text-xs ml-2">ล้างแบบร่าง</button>
+            </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>

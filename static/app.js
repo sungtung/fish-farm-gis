@@ -503,6 +503,213 @@ const MAE_HONG_SON_DISTRICT_OFFICES = {
   }
 };
 
+// ==================== AUTO-SAVE FORM DRAFTS (Zero Data Loss on Back / Reload) ====================
+function initFormDraftAutoSave() {
+  const farmerInputs = [
+    'farmerName', 'farmerCitizenId', 'farmerPhone', 'farmerBirthDate',
+    'farmerAddress', 'farmerSubdistrict', 'farmerDistrict', 'farmerNotes'
+  ];
+  farmerInputs.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', () => {
+        if (!document.getElementById('farmerId').value) {
+          saveFarmerDraft();
+        }
+      });
+    }
+  });
+
+  const pondInputs = [
+    'pondFarmerId', 'pondName', 'pondSpeciesSelect', 'pondSpeciesOther', 'pondLat', 'pondLng',
+    'pondRai', 'pondNgan', 'pondSqwa', 'pondType', 'pondDepth', 'pondStockCount',
+    'pondStockDate', 'pondHarvestDate', 'pondWaterSource', 'pondStatus', 'pondNotes'
+  ];
+  pondInputs.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', () => {
+        if (!document.getElementById('pondId').value) {
+          savePondDraft();
+        }
+      });
+      el.addEventListener('change', () => {
+        if (!document.getElementById('pondId').value) {
+          savePondDraft();
+        }
+      });
+    }
+  });
+}
+
+function saveFarmerDraft() {
+  const draft = {
+    name: document.getElementById('farmerName')?.value || '',
+    citizen_id: document.getElementById('farmerCitizenId')?.value || '',
+    phone: document.getElementById('farmerPhone')?.value || '',
+    birth_date: document.getElementById('farmerBirthDate')?.value || '',
+    address: document.getElementById('farmerAddress')?.value || '',
+    subdistrict: document.getElementById('farmerSubdistrict')?.value || '',
+    district: document.getElementById('farmerDistrict')?.value || '',
+    notes: document.getElementById('farmerNotes')?.value || '',
+    timestamp: Date.now()
+  };
+  if (draft.name.trim() || draft.citizen_id.trim() || draft.phone.trim() || draft.address.trim()) {
+    localStorage.setItem('fishfarm_farmer_draft', JSON.stringify(draft));
+    const notice = document.getElementById('farmerDraftNotice');
+    if (notice) notice.classList.remove('hidden');
+  }
+}
+
+function restoreFarmerDraft() {
+  const raw = localStorage.getItem('fishfarm_farmer_draft');
+  if (!raw) {
+    const notice = document.getElementById('farmerDraftNotice');
+    if (notice) notice.classList.add('hidden');
+    return false;
+  }
+  try {
+    const draft = JSON.parse(raw);
+    let hasData = false;
+    if (draft.name) { document.getElementById('farmerName').value = draft.name; hasData = true; }
+    if (draft.citizen_id) {
+      const cit = document.getElementById('farmerCitizenId');
+      if (cit) { cit.value = draft.citizen_id; handleCitizenIdInput(cit); hasData = true; }
+    }
+    if (draft.phone) { document.getElementById('farmerPhone').value = draft.phone; hasData = true; }
+    if (draft.birth_date && document.getElementById('farmerBirthDate')) {
+      document.getElementById('farmerBirthDate').value = draft.birth_date;
+      calculateAgeFromBirth();
+      hasData = true;
+    }
+    if (draft.address) { document.getElementById('farmerAddress').value = draft.address; hasData = true; }
+    if (draft.subdistrict) { document.getElementById('farmerSubdistrict').value = draft.subdistrict; hasData = true; }
+    if (draft.district) { document.getElementById('farmerDistrict').value = draft.district; hasData = true; }
+    if (draft.notes) { document.getElementById('farmerNotes').value = draft.notes; hasData = true; }
+
+    const notice = document.getElementById('farmerDraftNotice');
+    if (notice) {
+      if (hasData) notice.classList.remove('hidden');
+      else notice.classList.add('hidden');
+    }
+    return hasData;
+  } catch (e) {
+    return false;
+  }
+}
+
+function clearFarmerDraft() {
+  localStorage.removeItem('fishfarm_farmer_draft');
+  const notice = document.getElementById('farmerDraftNotice');
+  if (notice) notice.classList.add('hidden');
+}
+
+function clearFarmerDraftAndReset() {
+  clearFarmerDraft();
+  resetFarmerForm();
+  showToast('🗑️ ล้างแบบร่างเกษตรกรเรียบร้อยแล้ว', 'info');
+}
+
+function savePondDraft() {
+  const draft = {
+    farmer_id: document.getElementById('pondFarmerId')?.value || '',
+    name: document.getElementById('pondName')?.value || '',
+    fish_species: document.getElementById('pondSpecies')?.value || 'ปลานิล',
+    latitude: document.getElementById('pondLat')?.value || '',
+    longitude: document.getElementById('pondLng')?.value || '',
+    area_rai: document.getElementById('pondRai')?.value || '1',
+    area_ngan: document.getElementById('pondNgan')?.value || '0',
+    area_sqwa: document.getElementById('pondSqwa')?.value || '0',
+    pond_type: document.getElementById('pondType')?.value || 'บ่อดิน',
+    depth_meters: document.getElementById('pondDepth')?.value || '1.5',
+    stock_count: document.getElementById('pondStockCount')?.value || '',
+    stock_date: document.getElementById('pondStockDate')?.value || '',
+    harvest_date: document.getElementById('pondHarvestDate')?.value || '',
+    water_source: document.getElementById('pondWaterSource')?.value || 'คลองชลประทาน',
+    status: document.getElementById('pondStatus')?.value || 'กำลังเลี้ยง',
+    notes: document.getElementById('pondNotes')?.value || '',
+    timestamp: Date.now()
+  };
+  if (draft.name.trim() || draft.latitude.trim() || draft.stock_count.trim() || draft.notes.trim()) {
+    localStorage.setItem('fishfarm_pond_draft', JSON.stringify(draft));
+    const notice = document.getElementById('pondDraftNotice');
+    if (notice) notice.classList.remove('hidden');
+  }
+}
+
+function restorePondDraft() {
+  const raw = localStorage.getItem('fishfarm_pond_draft');
+  if (!raw) {
+    const notice = document.getElementById('pondDraftNotice');
+    if (notice) notice.classList.add('hidden');
+    return false;
+  }
+  try {
+    const draft = JSON.parse(raw);
+    let hasData = false;
+    if (draft.farmer_id && document.getElementById('pondFarmerId')) {
+      document.getElementById('pondFarmerId').value = draft.farmer_id;
+      handlePondFarmerChange(draft.farmer_id);
+    }
+    if (draft.name) { document.getElementById('pondName').value = draft.name; hasData = true; }
+    if (draft.fish_species) {
+      const spSelect = document.getElementById('pondSpeciesSelect');
+      const spHidden = document.getElementById('pondSpecies');
+      if (spHidden) spHidden.value = draft.fish_species;
+      if (spSelect) {
+        if (['ปลานิล', 'ปลานิลจิตรลดา', 'ปลานิลแปลงเพศ', 'ปลาดุกบิ๊กอุย', 'ปลากะพงขาว', 'ปลาสลิด', 'ปลาแรด', 'ปลาตะเพียนขาว'].includes(draft.fish_species)) {
+          spSelect.value = draft.fish_species;
+        } else {
+          spSelect.value = 'other';
+          const otherCont = document.getElementById('pondSpeciesOtherContainer');
+          const otherInp = document.getElementById('pondSpeciesOther');
+          if (otherCont) otherCont.classList.remove('hidden');
+          if (otherInp) otherInp.value = draft.fish_species;
+        }
+      }
+    }
+    if (draft.latitude) { document.getElementById('pondLat').value = draft.latitude; hasData = true; }
+    if (draft.longitude) { document.getElementById('pondLng').value = draft.longitude; hasData = true; }
+    if (draft.latitude && draft.longitude) {
+      setTempPickMarker(parseFloat(draft.latitude), parseFloat(draft.longitude));
+    }
+    if (draft.area_rai) document.getElementById('pondRai').value = draft.area_rai;
+    if (draft.area_ngan) document.getElementById('pondNgan').value = draft.area_ngan;
+    if (draft.area_sqwa) document.getElementById('pondSqwa').value = draft.area_sqwa;
+    if (draft.pond_type && document.getElementById('pondType')) document.getElementById('pondType').value = draft.pond_type;
+    if (draft.depth_meters && document.getElementById('pondDepth')) document.getElementById('pondDepth').value = draft.depth_meters;
+    if (draft.stock_count) { document.getElementById('pondStockCount').value = draft.stock_count; hasData = true; }
+    if (draft.stock_date) document.getElementById('pondStockDate').value = draft.stock_date;
+    if (draft.harvest_date) document.getElementById('pondHarvestDate').value = draft.harvest_date;
+    if (draft.water_source) document.getElementById('pondWaterSource').value = draft.water_source;
+    if (draft.status) document.getElementById('pondStatus').value = draft.status;
+    if (draft.notes) { document.getElementById('pondNotes').value = draft.notes; hasData = true; }
+
+    const notice = document.getElementById('pondDraftNotice');
+    if (notice) {
+      if (hasData) notice.classList.remove('hidden');
+      else notice.classList.add('hidden');
+    }
+    return hasData;
+  } catch (e) {
+    return false;
+  }
+}
+
+function clearPondDraft() {
+  localStorage.removeItem('fishfarm_pond_draft');
+  const notice = document.getElementById('pondDraftNotice');
+  if (notice) notice.classList.add('hidden');
+}
+
+function clearPondDraftAndReset() {
+  clearPondDraft();
+  document.getElementById('pondForm').reset();
+  document.getElementById('pondId').value = '';
+  removeTempPickMarker();
+  showToast('🗑️ ล้างแบบร่างบ่อปลาเรียบร้อยแล้ว', 'info');
+}
+
 // Initialize when DOM ready
 document.addEventListener('DOMContentLoaded', async () => {
   // Auto-login as Admin by default so user and other devices NEVER get stuck having to re-type password!
@@ -515,6 +722,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initProvinceSelector();
   initMap();
   updateAdminUI();
+  initFormDraftAutoSave();
   loadAllData();
 });
 
@@ -1304,9 +1512,15 @@ function handleMapClick(lat, lng) {
     }
   }
 
-  if (isPickMode || !document.getElementById('pondModal').classList.contains('hidden')) {
+  if (isPickMode) {
     setCoordinatesInForm(lat, lng);
     isPickMode = false;
+    document.getElementById('pondModal').classList.remove('hidden');
+    savePondDraft();
+    showToast(`📍 กำหนดพิกัดบ่อ (${lat.toFixed(5)}, ${lng.toFixed(5)}) เรียบร้อยแล้ว`, 'success');
+  } else if (!document.getElementById('pondModal').classList.contains('hidden')) {
+    setCoordinatesInForm(lat, lng);
+    savePondDraft();
   } else {
     // Only prompt without dropping dangling temp marker if user cancels
     setTimeout(() => {
@@ -1314,6 +1528,7 @@ function handleMapClick(lat, lng) {
       if (confirm(`คุณคลิกที่พิกัด:\nLat: ${lat.toFixed(5)}, Lng: ${lng.toFixed(5)}\n\nต้องการเพิ่มข้อมูลบ่อเลี้ยงปลา ${provText} ที่จุดนี้หรือไม่?`)) {
         openPondModal();
         setCoordinatesInForm(lat, lng);
+        savePondDraft();
       }
     }, 50);
   }
@@ -1355,9 +1570,10 @@ function setCoordinatesInForm(lat, lng) {
 
 function pickOnMapMode() {
   isPickMode = true;
-  closePondModal();
+  savePondDraft();
+  document.getElementById('pondModal').classList.add('hidden');
   const provText = activeProvince ? `ในเขต จ.${activeProvince}` : '';
-  alert(`กรุณาคลิกเลือกจุดบนแผนที่ ${provText} เพื่อกำหนดตำแหน่งพิกัดบ่อเลี้ยงปลา`);
+  showToast(`🗺️ กรุณาคลิกเลือกจุดบนแผนที่ ${provText} เพื่อกำหนดพิกัดบ่อเลี้ยงปลา`, 'info');
 }
 
 
@@ -2081,10 +2297,15 @@ function openPondModal() {
   const curFarmer = document.getElementById('pondFarmerId').value;
   handlePondFarmerChange(curFarmer);
 
+  restorePondDraft();
+
   document.getElementById('pondModal').classList.remove('hidden');
 }
 
 function closePondModal() {
+  if (!document.getElementById('pondId').value) {
+    savePondDraft();
+  }
   document.getElementById('pondModal').classList.add('hidden');
   removeTempPickMarker();
 }
@@ -2326,6 +2547,7 @@ async function savePond(e) {
     }
 
     closePondModal();
+    clearPondDraft();
     if (tempPickMarker) map.removeLayer(tempPickMarker);
     await loadAllData();
     alert('บันทึกข้อมูลและพิกัดบ่อเลี้ยงปลาเรียบร้อยแล้ว!');
@@ -2517,6 +2739,7 @@ function closeFarmerModal() {
 
 function showAddFarmerForm() {
   resetFarmerForm();
+  restoreFarmerDraft();
   const wrapper = document.getElementById('farmerFormWrapper');
   if (wrapper) {
     wrapper.classList.remove('hidden');
@@ -2527,6 +2750,9 @@ function showAddFarmerForm() {
 }
 
 function hideFarmerForm() {
+  if (!document.getElementById('farmerId').value) {
+    saveFarmerDraft();
+  }
   const wrapper = document.getElementById('farmerFormWrapper');
   if (wrapper) wrapper.classList.add('hidden');
   resetFarmerForm();
@@ -2694,6 +2920,7 @@ async function saveFarmer(e) {
     const result = await res.json();
     if (!res.ok) throw new Error(result.detail || 'เกิดข้อผิดพลาด');
 
+    clearFarmerDraft();
     hideFarmerForm();
     await loadFarmers();
     await loadStats();
@@ -3070,6 +3297,24 @@ function pushMapHistory(center, zoom) {
 }
 
 function navGoBack() {
+  // If user is currently typing a new farmer form, auto-save draft safely
+  const farmerWrapper = document.getElementById('farmerFormWrapper');
+  if (farmerWrapper && !farmerWrapper.classList.contains('hidden') && !document.getElementById('farmerId').value) {
+    saveFarmerDraft();
+    hideFarmerForm();
+    showToast('💾 ระบบบันทึกแบบร่างข้อมูลเกษตรกรไว้ให้แล้ว', 'info');
+    return;
+  }
+
+  // If user is currently typing a new pond form, auto-save draft safely
+  const pondModal = document.getElementById('pondModal');
+  if (pondModal && !pondModal.classList.contains('hidden') && !document.getElementById('pondId').value) {
+    savePondDraft();
+    closePondModal();
+    showToast('💾 ระบบบันทึกแบบร่างข้อมูลบ่อปลาไว้ให้แล้ว', 'info');
+    return;
+  }
+
   // 1. If any modal is currently visible, Back closes it first
   const openModal = [
     document.getElementById('pondModal'),

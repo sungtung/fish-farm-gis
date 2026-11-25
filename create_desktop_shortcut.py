@@ -6,14 +6,18 @@ def create_desktop_shortcut():
     temp_shortcut_path = os.path.join(desktop, "Fish_Farm_GIS_Temp.lnk")
     final_shortcut_path = os.path.join(desktop, "ระบบลงพิกัดบ่อเลี้ยงปลา (Fish Farm GIS).lnk")
     base_dir = os.path.dirname(os.path.abspath(__file__))
+    icon_path = os.path.join(base_dir, "app_icon.ico")
+
+    cloud_url = "https://fish-farm-gis.onrender.com"
 
     shell = win32com.client.Dispatch("WScript.Shell")
     shortcut = shell.CreateShortCut(temp_shortcut_path)
-    shortcut.Targetpath = os.path.join(base_dir, "run.bat")
-    shortcut.WorkingDirectory = base_dir
-    shortcut.IconLocation = os.path.join(base_dir, "app_icon.ico") + ",0"
-    shortcut.Description = "ระบบลงพิกัดบ่อเลี้ยงปลา & ฐานข้อมูลเกษตรกร (Fish Farm GIS)"
-    shortcut.save()
+    shortcut.TargetPath = r"C:\Windows\explorer.exe"
+    shortcut.Arguments = cloud_url
+    if os.path.exists(icon_path):
+        shortcut.IconLocation = f"{icon_path},0"
+    shortcut.Description = "ระบบลงพิกัดบ่อเลี้ยงปลา & ฐานข้อมูลเกษตรกร (Fish Farm GIS Online Cloud)"
+    shortcut.Save()
 
     if os.path.exists(final_shortcut_path):
         try:
