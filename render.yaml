@@ -1,5 +1,5 @@
-# Fish Farm GIS & Tracker Blueprint v2.2
-# Auto-sync with Postgres Sequence, Schema Migration & Live Rollback Restore
+# Fish Farm GIS & Tracker Blueprint v2.3
+# Fixed psycopg / psycopg2 driver for PostgreSQL in SQLAlchemy 2.0
 databases:
   - name: fish-farm-db
     databaseName: fishfarm
@@ -20,4 +20,4 @@ services:
           name: fish-farm-db
           property: connectionString
       - key: APP_VERSION
-        value: "2.2.0"
+        value: "2.3.0"

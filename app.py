@@ -25,7 +25,9 @@ os.makedirs(DOCS_DIR, exist_ok=True)
 raw_db_url = os.environ.get("DATABASE_URL")
 if raw_db_url:
     if raw_db_url.startswith("postgres://"):
-        raw_db_url = raw_db_url.replace("postgres://", "postgresql://", 1)
+        raw_db_url = raw_db_url.replace("postgres://", "postgresql+psycopg2://", 1)
+    elif raw_db_url.startswith("postgresql://"):
+        raw_db_url = raw_db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
     SQLALCHEMY_DATABASE_URL = raw_db_url
     engine = create_engine(SQLALCHEMY_DATABASE_URL, pool_pre_ping=True)
 else:
