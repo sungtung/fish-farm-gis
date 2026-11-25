@@ -1,5 +1,5 @@
-# Fish Farm GIS & Tracker Blueprint v2.4
-# Phone formatter 09-6161-6335, Thai BE birthdate selector, cascading district dropdowns, fast saving
+# Fish Farm GIS & Tracker Blueprint v2.4.1
+# Thai BE month selector, phone formatter 08-XXXX-XXXX / 09-XXXX-XXXX, cascading district dropdowns, fast saving
 databases:
   - name: fish-farm-db
     databaseName: fishfarm

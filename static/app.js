@@ -2714,7 +2714,7 @@ document.addEventListener('copy', (e) => {
   }
 });
 
-// --- Thai Phone Number Formatter (09-6161-6335 Standard) ---
+// --- Thai Phone Number Formatter (08-XXXX-XXXX / 09-XXXX-XXXX Standard) ---
 function formatPhoneNumber(val) {
   if (!val) return '';
   const digits = String(val).replace(/\D/g, '').slice(0, 10);
@@ -2772,10 +2772,10 @@ function initThaiDatePicker(prefix) {
   }
 
   mEl.innerHTML = '<option value="">เดือน</option>';
-  THAI_MONTHS_SHORT.forEach((mName, idx) => {
+  THAI_MONTHS_FULL.forEach((mName, idx) => {
     const opt = document.createElement('option');
     opt.value = idx + 1;
-    opt.textContent = `${idx + 1}. ${mName} (${THAI_MONTHS_FULL[idx]})`;
+    opt.textContent = mName;
     mEl.appendChild(opt);
   });
 
