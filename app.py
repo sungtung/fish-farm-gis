@@ -306,6 +306,80 @@ def seed_initial_data():
                 pond = Pond(**p_data)
                 db.add(pond)
             db.commit()
+
+    # Ensure Mae Hong Son farmers exist (Auto-seed if missing)
+    mhs_count = db.query(Farmer).filter(Farmer.province == "แม่ฮ่องสอน").count()
+    if mhs_count == 0:
+        mhs_farmers = [
+            {
+                "citizen_id": "",
+                "name": "นายยอดยิ่ง กันธิยะ",
+                "phone": "05265656565",
+                "address": "บ้านแม่สะเรียง",
+                "subdistrict": "แม่สะเรียง",
+                "district": "แม่สะเรียง",
+                "province": "แม่ฮ่องสอน",
+                "notes": "บ่อเพาะเลี้ยงปลานิลน้ำใส อ.แม่สะเรียง",
+                "ponds": [
+                    {
+                        "name": "บ่อนายยอดยิ่ง กันธิยะ",
+                        "latitude": 18.0761,
+                        "longitude": 97.9136,
+                        "area_rai": 1.0,
+                        "area_ngan": 0.0,
+                        "area_sqwa": 0.0,
+                        "depth_meters": 1.5,
+                        "fish_species": "ปลานิลจิตรลดา",
+                        "stock_count": 5000,
+                        "stock_date": "2026-09-01",
+                        "harvest_date": "2027-01-15",
+                        "water_source": "ลำห้วยแม่สะเรียง",
+                        "status": "กำลังเลี้ยง",
+                        "notes": "ใช้น้ำไหลผ่านจากลำห้วยธรรมชาติ"
+                    }
+                ]
+            },
+            {
+                "citizen_id": "",
+                "name": "นางคำพร มุลพรม 1",
+                "phone": "011111111",
+                "address": "บ้านแม่สะเรียง",
+                "subdistrict": "แม่สะเรียง",
+                "district": "แม่สะเรียง",
+                "province": "แม่ฮ่องสอน",
+                "notes": "บ่อเลี้ยงปลาเชิงเขา อ.แม่สะเรียง",
+                "ponds": [
+                    {
+                        "name": "บ่อนางคำพร มุลพรม 1",
+                        "latitude": 18.1095,
+                        "longitude": 97.9049,
+                        "area_rai": 1.0,
+                        "area_ngan": 0.0,
+                        "area_sqwa": 0.0,
+                        "depth_meters": 1.5,
+                        "fish_species": "ปลานิลจิตรลดา",
+                        "stock_count": 5000,
+                        "stock_date": "2026-09-10",
+                        "harvest_date": "2027-01-20",
+                        "water_source": "คลองชลประทาน",
+                        "status": "กำลังเลี้ยง",
+                        "notes": "บ่อเลี้ยงปลาคุณภาพ GAP"
+                    }
+                ]
+            }
+        ]
+        for f_data in mhs_farmers:
+            ponds_data = f_data.pop("ponds")
+            farmer = Farmer(**f_data)
+            db.add(farmer)
+            db.commit()
+            db.refresh(farmer)
+            for p_data in ponds_data:
+                p_data["farmer_id"] = farmer.id
+                pond = Pond(**p_data)
+                db.add(pond)
+            db.commit()
+
     db.close()
 
 def fix_postgres_sequences():
@@ -332,6 +406,32 @@ def fix_postgres_sequences():
         except Exception as e:
             print("Postgres sequence sync notice:", e)
 
+def ensure_schema_migrations():
+    """Ensure all required columns exist in database (PostgreSQL and SQLite)."""
+    with engine.begin() as conn:
+        if "postgresql" in str(engine.url):
+            try:
+                conn.execute(text("ALTER TABLE farmers ADD COLUMN IF NOT EXISTS birth_date VARCHAR(50) DEFAULT '';"))
+                conn.execute(text("ALTER TABLE farmers ADD COLUMN IF NOT EXISTS photo_url VARCHAR(500) DEFAULT '';"))
+                conn.execute(text("ALTER TABLE ponds ADD COLUMN IF NOT EXISTS pond_type VARCHAR(100) DEFAULT 'บ่อดิน';"))
+            except Exception as e:
+                print("Postgres migration notice:", e)
+        else:
+            try:
+                raw_c = conn.connection.cursor()
+                f_cols = [r[1] for r in raw_c.execute("PRAGMA table_info(farmers)").fetchall()]
+                if "birth_date" not in f_cols:
+                    raw_c.execute("ALTER TABLE farmers ADD COLUMN birth_date TEXT DEFAULT ''")
+                if "photo_url" not in f_cols:
+                    raw_c.execute("ALTER TABLE farmers ADD COLUMN photo_url TEXT DEFAULT ''")
+                
+                p_cols = [r[1] for r in raw_c.execute("PRAGMA table_info(ponds)").fetchall()]
+                if "pond_type" not in p_cols:
+                    raw_c.execute("ALTER TABLE ponds ADD COLUMN pond_type TEXT DEFAULT 'บ่อดิน'")
+            except Exception as e:
+                print("SQLite migration notice:", e)
+
+ensure_schema_migrations()
 seed_initial_data()
 fix_postgres_sequences()
 
@@ -503,17 +603,198 @@ def get_backups(admin_ok: bool = Depends(verify_admin)):
     snapshots = backup_manager.ensure_rolling_backups()
     return {"status": "success", "snapshots": snapshots}
 
+def dump_active_db_to_sqlite(dest_path: str):
+    """Dump all tables from active SQLAlchemy DB (PostgreSQL / SQLite) into a SQLite snapshot file."""
+    import sqlite3
+    db = SessionLocal()
+    try:
+        if os.path.exists(dest_path):
+            os.remove(dest_path)
+        
+        conn = sqlite3.connect(dest_path)
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS farmers (
+                id INTEGER PRIMARY KEY,
+                citizen_id TEXT,
+                name TEXT NOT NULL,
+                phone TEXT,
+                address TEXT,
+                subdistrict TEXT,
+                district TEXT,
+                province TEXT,
+                birth_date TEXT,
+                notes TEXT,
+                photo_url TEXT,
+                created_at TIMESTAMP
+            );
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS ponds (
+                id INTEGER PRIMARY KEY,
+                farmer_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                latitude REAL NOT NULL,
+                longitude REAL NOT NULL,
+                area_rai REAL DEFAULT 0,
+                area_ngan REAL DEFAULT 0,
+                area_sqwa REAL DEFAULT 0,
+                pond_type TEXT DEFAULT 'บ่อดิน',
+                depth_meters REAL DEFAULT 1.5,
+                fish_species TEXT DEFAULT 'ปลานิล',
+                stock_count INTEGER DEFAULT 0,
+                stock_date TEXT,
+                harvest_date TEXT,
+                water_source TEXT,
+                status TEXT DEFAULT 'กำลังเลี้ยง',
+                notes TEXT,
+                created_at TIMESTAMP
+            );
+        """)
+        
+        for f in db.query(Farmer).all():
+            cur.execute("""
+                INSERT INTO farmers (id, citizen_id, name, phone, address, subdistrict, district, province, birth_date, notes, photo_url, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (f.id, f.citizen_id, f.name, f.phone, f.address, f.subdistrict, f.district, f.province, f.birth_date, f.notes, f.photo_url, str(f.created_at) if f.created_at else None))
+            
+        for p in db.query(Pond).all():
+            cur.execute("""
+                INSERT INTO ponds (id, farmer_id, name, latitude, longitude, area_rai, area_ngan, area_sqwa, pond_type, depth_meters, fish_species, stock_count, stock_date, harvest_date, water_source, status, notes, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (p.id, p.farmer_id, p.name, p.latitude, p.longitude, p.area_rai, p.area_ngan, p.area_sqwa, p.pond_type, p.depth_meters, p.fish_species, p.stock_count, p.stock_date, p.harvest_date, p.water_source, p.status, p.notes, str(p.created_at) if p.created_at else None))
+            
+        conn.commit()
+        conn.close()
+    finally:
+        db.close()
+
 @app.post("/api/admin/backups/create")
 def create_backup(label: str = Form("สำรองข้อมูลด้วยตนเอง"), admin_ok: bool = Depends(verify_admin)):
-    snap = backup_manager.create_manual_backup(label=label)
-    return {"status": "success", "message": "สร้างจุดสำรองข้อมูลเรียบร้อย", "snapshot": snap}
+    now_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"manual_{now_str}.db"
+    dest_path = os.path.join(backup_manager.BACKUP_DIR, filename)
+    dump_active_db_to_sqlite(dest_path)
+    
+    stats = backup_manager.get_db_stats(dest_path)
+    snapshot_info = {
+        "id": f"manual_{now_str}",
+        "title": label,
+        "days_ago": 0,
+        "filename": filename,
+        "created_at": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+        "iso_date": datetime.now().isoformat(),
+        "farmers_count": stats["farmers_count"],
+        "ponds_count": stats["ponds_count"],
+        "size_kb": stats["size_kb"],
+        "is_manual": True
+    }
+    meta = backup_manager.load_meta()
+    meta["snapshots"].insert(0, snapshot_info)
+    backup_manager.save_meta(meta)
+    return {"status": "success", "message": "สร้างจุดสำรองข้อมูลเรียบร้อย", "snapshot": snapshot_info}
+
+def sync_snapshot_to_active_db(sqlite_backup_path: str):
+    """Sync data from SQLite backup snapshot directly into active SQLAlchemy database (PostgreSQL or SQLite)."""
+    import sqlite3
+    if not os.path.exists(sqlite_backup_path):
+        raise FileNotFoundError(f"Snapshot file not found: {sqlite_backup_path}")
+    
+    conn = sqlite3.connect(sqlite_backup_path)
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    farmers_rows = [dict(r) for r in cur.execute("SELECT * FROM farmers").fetchall()]
+    ponds_rows = [dict(r) for r in cur.execute("SELECT * FROM ponds").fetchall()]
+    conn.close()
+
+    ensure_schema_migrations()
+    db = SessionLocal()
+    try:
+        db.query(PondPhoto).delete()
+        db.query(PondDocument).delete()
+        db.query(Pond).delete()
+        db.query(Farmer).delete()
+        db.commit()
+
+        for f in farmers_rows:
+            c_at = datetime.utcnow()
+            if f.get("created_at"):
+                try:
+                    c_at = datetime.fromisoformat(str(f["created_at"]).replace("Z", ""))
+                except Exception:
+                    pass
+            farmer = Farmer(
+                id=f["id"],
+                citizen_id=f.get("citizen_id") or "",
+                name=f.get("name") or "",
+                phone=f.get("phone") or "",
+                birth_date=f.get("birth_date") or "",
+                address=f.get("address") or "",
+                subdistrict=f.get("subdistrict") or "",
+                district=f.get("district") or "",
+                province=f.get("province") or "",
+                notes=f.get("notes") or "",
+                photo_url=f.get("photo_url") or "",
+                created_at=c_at
+            )
+            db.add(farmer)
+        db.commit()
+
+        for p in ponds_rows:
+            c_at = datetime.utcnow()
+            if p.get("created_at"):
+                try:
+                    c_at = datetime.fromisoformat(str(p["created_at"]).replace("Z", ""))
+                except Exception:
+                    pass
+            pond = Pond(
+                id=p["id"],
+                farmer_id=p["farmer_id"],
+                name=p.get("name") or "",
+                latitude=float(p.get("latitude") or 0.0),
+                longitude=float(p.get("longitude") or 0.0),
+                area_rai=float(p.get("area_rai") or 0.0),
+                area_ngan=float(p.get("area_ngan") or 0.0),
+                area_sqwa=float(p.get("area_sqwa") or 0.0),
+                pond_type=p.get("pond_type") or "บ่อดิน",
+                depth_meters=float(p.get("depth_meters") or 1.5),
+                fish_species=p.get("fish_species") or "ปลานิล",
+                stock_count=int(p.get("stock_count") or 0),
+                stock_date=p.get("stock_date") or "",
+                harvest_date=p.get("harvest_date") or "",
+                water_source=p.get("water_source") or "",
+                status=p.get("status") or "กำลังเลี้ยง",
+                notes=p.get("notes") or "",
+                created_at=c_at
+            )
+            db.add(pond)
+        db.commit()
+
+        fix_postgres_sequences()
+
+        f_cnt = db.query(Farmer).count()
+        p_cnt = db.query(Pond).count()
+        return {"farmers_count": f_cnt, "ponds_count": p_cnt}
+    except Exception as e:
+        db.rollback()
+        raise e
+    finally:
+        db.close()
 
 @app.post("/api/admin/backups/restore")
 def restore_backup(snapshot_id: str = Form(...), admin_ok: bool = Depends(verify_admin)):
     try:
-        # Release SQLite DB connections before overwriting
         engine.dispose()
         res = backup_manager.restore_snapshot(snapshot_id)
+        
+        # Sync snapshot data directly into active SQLAlchemy database (PostgreSQL / SQLite)
+        meta = backup_manager.load_meta()
+        target = next((s for s in meta["snapshots"] if s["id"] == snapshot_id), None)
+        if target:
+            target_path = os.path.join(backup_manager.BACKUP_DIR, target["filename"])
+            sync_res = sync_snapshot_to_active_db(target_path)
+            res["current_stats"] = sync_res
+            
         return res
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

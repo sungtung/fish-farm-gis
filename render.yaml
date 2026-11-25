@@ -1,5 +1,5 @@
-# Fish Farm GIS & Tracker Blueprint v2.1
-# Auto-sync with Postgres Sequence & Form Draft Persistence
+# Fish Farm GIS & Tracker Blueprint v2.2
+# Auto-sync with Postgres Sequence, Schema Migration & Live Rollback Restore
 databases:
   - name: fish-farm-db
     databaseName: fishfarm
@@ -20,4 +20,4 @@ services:
           name: fish-farm-db
           property: connectionString
       - key: APP_VERSION
-        value: "2.1.0"
+        value: "2.2.0"
