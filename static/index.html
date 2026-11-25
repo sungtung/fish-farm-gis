@@ -625,17 +625,28 @@
             </div>
             <div>
               <label class="block text-slate-600 font-semibold mb-0.5">เบอร์โทรศัพท์</label>
-              <input type="text" id="pondFarmerPhone" placeholder="เช่น 081-234-5678" class="w-full p-2 bg-white border border-slate-300 rounded-lg focus:ring-1 focus:ring-sky-500 font-medium text-xs">
+              <input type="text" id="pondFarmerPhone" maxlength="12" oninput="handlePhoneInput(this)" placeholder="เช่น 09-6161-6335" class="w-full p-2 bg-white border border-slate-300 rounded-lg focus:ring-1 focus:ring-sky-500 font-medium text-xs font-mono">
             </div>
           </div>
 
-          <!-- วันเดือนปีเกิด และอายุจริงคำนวณอัตโนมัติ -->
+          <!-- วันเดือนปีเกิด (พ.ศ.) และอายุจริงคำนวณอัตโนมัติ -->
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 bg-white p-2.5 rounded-lg border border-sky-100">
             <div>
               <label class="block text-slate-700 font-semibold mb-0.5 flex items-center gap-1">
-                <i class="fa-solid fa-cake-candles text-amber-500"></i> วันเดือนปีเกิด
+                <i class="fa-solid fa-cake-candles text-amber-500"></i> วันเดือนปีเกิด (พ.ศ.)
               </label>
-              <input type="date" id="pondFarmerBirthDate" oninput="updatePondFarmerAgeDisplay()" class="w-full p-1.5 bg-white border border-slate-300 rounded-lg focus:ring-1 focus:ring-sky-500 text-xs">
+              <div class="grid grid-cols-3 gap-1">
+                <select id="pondFarmerBirthDay" onchange="syncThaiBirthDate('pondFarmer')" class="p-1.5 bg-white border border-slate-300 rounded-lg text-xs font-medium focus:ring-1 focus:ring-sky-500">
+                  <option value="">วัน</option>
+                </select>
+                <select id="pondFarmerBirthMonth" onchange="syncThaiBirthDate('pondFarmer')" class="p-1.5 bg-white border border-slate-300 rounded-lg text-xs font-medium focus:ring-1 focus:ring-sky-500">
+                  <option value="">เดือน</option>
+                </select>
+                <select id="pondFarmerBirthYearBE" onchange="syncThaiBirthDate('pondFarmer')" class="p-1.5 bg-white border border-slate-300 rounded-lg text-xs font-medium focus:ring-1 focus:ring-sky-500">
+                  <option value="">ปี พ.ศ.</option>
+                </select>
+              </div>
+              <input type="hidden" id="pondFarmerBirthDate">
             </div>
             <div>
               <label class="block text-slate-700 font-semibold mb-0.5 flex items-center gap-1">
@@ -645,9 +656,24 @@
             </div>
           </div>
 
-          <div>
-            <label class="block text-slate-600 font-semibold mb-0.5">ที่อยู่ / พื้นที่ตั้งฟาร์ม</label>
-            <input type="text" id="pondFarmerAddress" placeholder="เช่น 45 หมู่ 3 ต.ผาบ่อง อ.เมือง จ.แม่ฮ่องสอน" class="w-full p-2 bg-white border border-slate-300 rounded-lg focus:ring-1 focus:ring-sky-500 text-xs">
+          <!-- อำเภอ ตำบล ดรอปดาวน์ และ ที่อยู่ -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div>
+              <label class="block text-slate-600 font-semibold mb-0.5">ที่อยู่ / บ้านเลขที่-หมู่</label>
+              <input type="text" id="pondFarmerAddress" placeholder="เช่น 45 หมู่ 3" class="w-full p-1.5 bg-white border border-slate-300 rounded-lg focus:ring-1 focus:ring-sky-500 text-xs">
+            </div>
+            <div>
+              <label class="block text-slate-600 font-semibold mb-0.5">อำเภอ</label>
+              <select id="pondFarmerDistrict" onchange="onFarmerDistrictSelectChange('pondFarmer')" class="w-full p-1.5 bg-white border border-slate-300 rounded-lg focus:ring-1 focus:ring-sky-500 text-xs font-medium">
+                <option value="">-- เลือกอำเภอ --</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-slate-600 font-semibold mb-0.5">ตำบล</label>
+              <select id="pondFarmerSubdistrict" class="w-full p-1.5 bg-white border border-slate-300 rounded-lg focus:ring-1 focus:ring-sky-500 text-xs font-medium">
+                <option value="">-- เลือกตำบล --</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -916,17 +942,28 @@
               </div>
               <div>
                 <label class="block font-semibold text-slate-700 mb-1">เบอร์โทรศัพท์ <span class="text-rose-500">*</span></label>
-                <input type="text" id="farmerPhone" required placeholder="เช่น 081-234-5678" class="w-full p-2 border border-slate-300 rounded-lg bg-white">
+                <input type="text" id="farmerPhone" required maxlength="12" oninput="handlePhoneInput(this)" placeholder="เช่น 09-6161-6335" class="w-full p-2 border border-slate-300 rounded-lg bg-white font-mono">
               </div>
             </div>
 
-            <!-- วันเดือนปีเกิด และ อายุจริงรันอัตโนมัติ -->
+            <!-- วันเดือนปีเกิด (พ.ศ.) และ อายุจริงรันอัตโนมัติ -->
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-white p-3 rounded-xl border border-sky-200">
               <div>
                 <label class="block font-semibold text-slate-700 mb-1 flex items-center gap-1.5">
-                  <i class="fa-solid fa-cake-candles text-amber-500"></i> วันเดือนปีเกิด
+                  <i class="fa-solid fa-cake-candles text-amber-500"></i> วันเดือนปีเกิด (พ.ศ.)
                 </label>
-                <input type="date" id="farmerBirthDate" oninput="updateFarmerAgeDisplay()" class="w-full p-2 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-sky-500">
+                <div class="grid grid-cols-3 gap-1.5">
+                  <select id="farmerBirthDay" onchange="syncThaiBirthDate('farmer')" class="p-2 border border-slate-300 rounded-lg bg-white text-xs font-medium focus:ring-2 focus:ring-sky-500">
+                    <option value="">วัน</option>
+                  </select>
+                  <select id="farmerBirthMonth" onchange="syncThaiBirthDate('farmer')" class="p-2 border border-slate-300 rounded-lg bg-white text-xs font-medium focus:ring-2 focus:ring-sky-500">
+                    <option value="">เดือน</option>
+                  </select>
+                  <select id="farmerBirthYearBE" onchange="syncThaiBirthDate('farmer')" class="p-2 border border-slate-300 rounded-lg bg-white text-xs font-medium focus:ring-2 focus:ring-sky-500">
+                    <option value="">ปี พ.ศ.</option>
+                  </select>
+                </div>
+                <input type="hidden" id="farmerBirthDate">
               </div>
               <div>
                 <label class="block font-semibold text-slate-700 mb-1 flex items-center gap-1.5">
@@ -942,16 +979,23 @@
                 <input type="text" id="farmerAddress" placeholder="เช่น 45 หมู่ 3" class="w-full p-2 border border-slate-300 rounded-lg bg-white">
               </div>
               <div>
-                <label class="block font-semibold text-slate-700 mb-1">ตำบล / แขวง</label>
-                <input type="text" id="farmerSubdistrict" placeholder="เช่น ดอนเจดีย์" class="w-full p-2 border border-slate-300 rounded-lg bg-white">
+                <label class="block font-semibold text-slate-700 mb-1">อำเภอ / เขต</label>
+                <select id="farmerDistrict" onchange="onFarmerDistrictSelectChange('farmer')" class="w-full p-2 border border-slate-300 rounded-lg bg-white font-medium">
+                  <option value="">-- เลือกอำเภอ --</option>
+                </select>
               </div>
               <div>
-                <label class="block font-semibold text-slate-700 mb-1">อำเภอ / เขต</label>
-                <input type="text" id="farmerDistrict" list="thailandDistrictsList" placeholder="เช่น เมือง, ปาย" class="w-full p-2 border border-slate-300 rounded-lg bg-white">
+                <label class="block font-semibold text-slate-700 mb-1">ตำบล / แขวง</label>
+                <select id="farmerSubdistrict" class="w-full p-2 border border-slate-300 rounded-lg bg-white font-medium">
+                  <option value="">-- เลือกตำบล --</option>
+                </select>
               </div>
               <div>
                 <label class="block font-semibold text-slate-700 mb-1">จังหวัด <span class="text-rose-500">*</span></label>
-                <input type="text" id="farmerProvince" list="thailandProvincesList" required placeholder="เช่น สุพรรณบุรี" class="w-full p-2 border border-slate-300 rounded-lg bg-white">
+                <select id="farmerProvince" onchange="onFarmerProvinceSelectChange('farmer')" class="w-full p-2 border border-slate-300 rounded-lg bg-white font-medium">
+                  <option value="แม่ฮ่องสอน" selected>แม่ฮ่องสอน</option>
+                  <option value="สุพรรณบุรี">สุพรรณบุรี</option>
+                </select>
               </div>
             </div>
 

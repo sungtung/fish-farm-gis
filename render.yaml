@@ -1,5 +1,5 @@
-# Fish Farm GIS & Tracker Blueprint v2.3
-# Fixed psycopg / psycopg2 driver for PostgreSQL in SQLAlchemy 2.0
+# Fish Farm GIS & Tracker Blueprint v2.4
+# Phone formatter 09-6161-6335, Thai BE birthdate selector, cascading district dropdowns, fast saving
 databases:
   - name: fish-farm-db
     databaseName: fishfarm
@@ -20,4 +20,4 @@ services:
           name: fish-farm-db
           property: connectionString
       - key: APP_VERSION
-        value: "2.3.0"
+        value: "2.4.0"

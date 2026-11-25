@@ -577,14 +577,15 @@ function restoreFarmerDraft() {
       if (cit) { cit.value = draft.citizen_id; handleCitizenIdInput(cit); hasData = true; }
     }
     if (draft.phone) { document.getElementById('farmerPhone').value = draft.phone; hasData = true; }
-    if (draft.birth_date && document.getElementById('farmerBirthDate')) {
-      document.getElementById('farmerBirthDate').value = draft.birth_date;
-      calculateAgeFromBirth();
+    if (draft.birth_date) {
+      setThaiBirthDate('farmer', draft.birth_date);
       hasData = true;
     }
     if (draft.address) { document.getElementById('farmerAddress').value = draft.address; hasData = true; }
-    if (draft.subdistrict) { document.getElementById('farmerSubdistrict').value = draft.subdistrict; hasData = true; }
-    if (draft.district) { document.getElementById('farmerDistrict').value = draft.district; hasData = true; }
+    if (draft.district || draft.subdistrict) {
+      populateDistrictSelect('farmer', draft.district || '', draft.subdistrict || '', activeProvince || 'แม่ฮ่องสอน');
+      hasData = true;
+    }
     if (draft.notes) { document.getElementById('farmerNotes').value = draft.notes; hasData = true; }
 
     const notice = document.getElementById('farmerDraftNotice');
@@ -723,6 +724,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   initMap();
   updateAdminUI();
   initFormDraftAutoSave();
+  initThaiDatePicker('farmer');
+  initThaiDatePicker('pondFarmer');
+  populateDistrictSelect('farmer', activeDistrict, '', activeProvince);
+  populateDistrictSelect('pondFarmer', '', '', activeProvince);
   loadAllData();
 });
 
@@ -922,6 +927,10 @@ function setMapLayer(layerName) {
   }
 }
 
+// In-memory GeoJSON boundary caches to prevent redundant network fetches
+const _cachedGeoProvince = {};
+const _cachedGeoDistricts = {};
+
 // Load and render official high-accuracy boundary polygon for province
 async function loadProvinceBoundary(provName) {
   if (!map) return;
@@ -934,10 +943,13 @@ async function loadProvinceBoundary(provName) {
   if (!provName) return;
 
   try {
-    const res = await fetch(`/api/boundaries/province/${encodeURIComponent(provName)}`);
-    if (!res.ok) return;
-
-    const geoData = await res.json();
+    let geoData = _cachedGeoProvince[provName];
+    if (!geoData) {
+      const res = await fetch(`/api/boundaries/province/${encodeURIComponent(provName)}`);
+      if (!res.ok) return;
+      geoData = await res.json();
+      _cachedGeoProvince[provName] = geoData;
+    }
     if (!geoData) return;
 
     provinceBoundaryLayer = L.geoJSON(geoData, {
@@ -995,13 +1007,16 @@ async function loadDistrictsBoundary(provName) {
   }
 
   try {
-    const res = await fetch(`/api/boundaries/districts/${encodeURIComponent(provName)}`);
-    if (!res.ok) {
-      if (select) select.innerHTML = '<option value="">-- ทุกอำเภอ --</option>';
-      return;
+    let geoData = _cachedGeoDistricts[provName];
+    if (!geoData) {
+      const res = await fetch(`/api/boundaries/districts/${encodeURIComponent(provName)}`);
+      if (!res.ok) {
+        if (select) select.innerHTML = '<option value="">-- ทุกอำเภอ --</option>';
+        return;
+      }
+      geoData = await res.json();
+      _cachedGeoDistricts[provName] = geoData;
     }
-
-    const geoData = await res.json();
     if (!geoData || !geoData.features) return;
 
     currentDistrictsList = geoData.features.map(f => f.properties);
@@ -1173,7 +1188,7 @@ async function loadFarmers() {
     allFarmers.forEach(f => {
       const opt = document.createElement('option');
       opt.value = f.id;
-      opt.textContent = `${f.name} (${f.subdistrict || ''} ${f.district || ''} จ.${f.province || 'ไม่ระบุ'}) - โทร. ${f.phone || '-'}`;
+      opt.textContent = `${f.name} (${[f.subdistrict ? 'ต.'+f.subdistrict : '', f.district ? 'อ.'+f.district : '', f.province ? 'จ.'+f.province : ''].filter(Boolean).join(' ') || 'จ.แม่ฮ่องสอน'}) - โทร. ${formatPhoneNumber(f.phone) || '-'}`;
       selectPond.appendChild(opt);
 
       const optFilter = document.createElement('option');
@@ -1329,7 +1344,7 @@ function createPondMarker(p) {
         <div class="text-slate-600 space-y-1 text-[11px] border-t border-slate-100 pt-2">
           ${!p.farmer_photo_url ? `<div><strong>เกษตรกร:</strong> ${p.farmer_name}</div>` : ''}
           ${!p.farmer_photo_url ? `<div><strong>พื้นที่:</strong> จ.${p.farmer_province || 'แม่ฮ่องสอน'}</div>` : ''}
-          <div><strong>โทร:</strong> <a href="tel:${p.farmer_phone}" class="text-marine-600 hover:underline">${p.farmer_phone || '-'}</a></div>
+          <div><strong>โทร:</strong> <a href="tel:${p.farmer_phone}" class="text-marine-600 hover:underline font-bold">${formatPhoneNumber(p.farmer_phone) || '-'}</a></div>
           <div><strong>ขนาด:</strong> ${p.area_rai} ไร่ ${p.area_ngan} งาน ${p.area_sqwa > 0 ? p.area_sqwa + ' ตร.ว.' : ''} <span class="ml-1 px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded text-[10px] font-semibold border border-slate-200">${p.pond_type || 'บ่อดิน'}</span></div>
           <div><strong>พิกัด:</strong> ${p.latitude.toFixed(5)}, ${p.longitude.toFixed(5)}</div>
         </div>
@@ -2216,7 +2231,6 @@ function handlePondFarmerChange(farmerId) {
   const badge = document.getElementById('pondFarmerProfileBadge');
   const citizenInput = document.getElementById('pondFarmerCitizenId');
   const phoneInput = document.getElementById('pondFarmerPhone');
-  const birthInput = document.getElementById('pondFarmerBirthDate');
   const addressInput = document.getElementById('pondFarmerAddress');
 
   if (f) {
@@ -2225,12 +2239,10 @@ function handlePondFarmerChange(farmerId) {
       citizenInput.value = formatCitizenId(f.citizen_id || '');
       handleCitizenIdInput(citizenInput);
     }
-    if (phoneInput) phoneInput.value = f.phone || '';
-    if (birthInput) birthInput.value = f.birth_date || '';
-    if (addressInput) {
-      const fullAddr = [f.address, f.subdistrict ? `ต.${f.subdistrict}` : '', f.district ? `อ.${f.district}` : '', f.province ? `จ.${f.province}` : ''].filter(Boolean).join(' ');
-      addressInput.value = fullAddr || f.address || '';
-    }
+    if (phoneInput) phoneInput.value = formatPhoneNumber(f.phone || '');
+    setThaiBirthDate('pondFarmer', f.birth_date || '');
+    if (addressInput) addressInput.value = f.address || '';
+    populateDistrictSelect('pondFarmer', f.district || '', f.subdistrict || '', f.province || activeProvince || 'แม่ฮ่องสอน');
     updatePondFarmerAgeDisplay();
   } else {
     if (badge) badge.textContent = '';
@@ -2239,8 +2251,9 @@ function handlePondFarmerChange(farmerId) {
       handleCitizenIdInput(citizenInput);
     }
     if (phoneInput) phoneInput.value = '';
-    if (birthInput) birthInput.value = '';
+    setThaiBirthDate('pondFarmer', '');
     if (addressInput) addressInput.value = '';
+    populateDistrictSelect('pondFarmer', '', '', activeProvince || 'แม่ฮ่องสอน');
     updatePondFarmerAgeDisplay();
   }
 }
@@ -2498,6 +2511,14 @@ async function savePond(e) {
   formData.append('status', document.getElementById('pondStatus').value);
   formData.append('notes', document.getElementById('pondNotes').value || '');
 
+  const submitBtn = document.querySelector('#pondForm button[type="submit"]');
+  let origBtnHtml = '';
+  if (submitBtn) {
+    origBtnHtml = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึกข้อมูล...';
+  }
+
   try {
     const url = pondId ? `/api/ponds/${pondId}` : '/api/ponds';
     const method = pondId ? 'PUT' : 'POST';
@@ -2509,7 +2530,7 @@ async function savePond(e) {
     });
 
     const result = await res.json();
-    if (!res.ok) throw new Error(result.detail || 'เกิดข้อผิดพลาด');
+    if (!res.ok) throw new Error(result.detail || 'เกิดข้อผิดพลาดในการบันทึกบ่อปลา');
 
     // Auto-update farmer profile if modified directly in pond modal
     const currentFarmer = allFarmers.find(f => f.id == selectedFarmerId);
@@ -2518,11 +2539,15 @@ async function savePond(e) {
       const fPhone = (document.getElementById('pondFarmerPhone') ? document.getElementById('pondFarmerPhone').value.trim() : '');
       const fBirth = (document.getElementById('pondFarmerBirthDate') ? document.getElementById('pondFarmerBirthDate').value.trim() : '');
       const fAddress = (document.getElementById('pondFarmerAddress') ? document.getElementById('pondFarmerAddress').value.trim() : '');
+      const fDistrict = (document.getElementById('pondFarmerDistrict') ? document.getElementById('pondFarmerDistrict').value.trim() : '');
+      const fSubdist = (document.getElementById('pondFarmerSubdistrict') ? document.getElementById('pondFarmerSubdistrict').value.trim() : '');
 
       if (fCitizen !== (currentFarmer.citizen_id || '') ||
           (fPhone && fPhone !== (currentFarmer.phone || '')) ||
           fBirth !== (currentFarmer.birth_date || '') ||
-          (fAddress && fAddress !== (currentFarmer.address || ''))) {
+          (fAddress && fAddress !== (currentFarmer.address || '')) ||
+          (fDistrict && fDistrict !== (currentFarmer.district || '')) ||
+          (fSubdist && fSubdist !== (currentFarmer.subdistrict || ''))) {
         try {
           const fData = new FormData();
           fData.append('name', currentFarmer.name);
@@ -2530,9 +2555,9 @@ async function savePond(e) {
           fData.append('phone', fPhone || currentFarmer.phone || '');
           fData.append('birth_date', fBirth);
           fData.append('address', fAddress || currentFarmer.address || '');
-          fData.append('subdistrict', currentFarmer.subdistrict || '');
-          fData.append('district', currentFarmer.district || '');
-          fData.append('province', currentFarmer.province || activeProvince || '');
+          fData.append('subdistrict', fSubdist || currentFarmer.subdistrict || '');
+          fData.append('district', fDistrict || currentFarmer.district || '');
+          fData.append('province', currentFarmer.province || activeProvince || 'แม่ฮ่องสอน');
           fData.append('notes', currentFarmer.notes || '');
 
           await fetch(`/api/farmers/${selectedFarmerId}`, {
@@ -2549,10 +2574,15 @@ async function savePond(e) {
     closePondModal();
     clearPondDraft();
     if (tempPickMarker) map.removeLayer(tempPickMarker);
-    await loadAllData();
-    alert('บันทึกข้อมูลและพิกัดบ่อเลี้ยงปลาเรียบร้อยแล้ว!');
+    showToast('✅ บันทึกข้อมูลและพิกัดบ่อเลี้ยงปลาเรียบร้อยแล้ว!', 'success');
+    await Promise.all([loadPonds(), loadFarmers(), loadStats()]);
   } catch (err) {
     alert('ข้อผิดพลาด: ' + err.message);
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = origBtnHtml;
+    }
   }
 }
 
@@ -2684,6 +2714,249 @@ document.addEventListener('copy', (e) => {
   }
 });
 
+// --- Thai Phone Number Formatter (09-6161-6335 Standard) ---
+function formatPhoneNumber(val) {
+  if (!val) return '';
+  const digits = String(val).replace(/\D/g, '').slice(0, 10);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6, 10)}`;
+}
+
+function handlePhoneInput(input) {
+  if (!input) return;
+  const cursor = input.selectionStart || 0;
+  const oldVal = input.value;
+  const digitsBeforeCursor = oldVal.slice(0, cursor).replace(/\D/g, '').length;
+
+  const rawDigits = input.value.replace(/\D/g, '').slice(0, 10);
+  const formatted = formatPhoneNumber(rawDigits);
+  input.value = formatted;
+
+  // Restore cursor naturally
+  let newCursor = 0;
+  let digitCount = 0;
+  while (newCursor < formatted.length && digitCount < digitsBeforeCursor) {
+    if (/\d/.test(formatted[newCursor])) {
+      digitCount++;
+    }
+    newCursor++;
+  }
+  input.setSelectionRange(newCursor, newCursor);
+}
+
+// --- Thai Buddhist Era (พ.ศ.) Date Picker System & Formatter ---
+const THAI_MONTHS_SHORT = [
+  'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+  'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'
+];
+
+const THAI_MONTHS_FULL = [
+  'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน',
+  'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม',
+  'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+];
+
+function initThaiDatePicker(prefix) {
+  const dEl = document.getElementById(`${prefix}BirthDay`);
+  const mEl = document.getElementById(`${prefix}BirthMonth`);
+  const yEl = document.getElementById(`${prefix}BirthYearBE`);
+  if (!dEl || !mEl || !yEl) return;
+
+  dEl.innerHTML = '<option value="">วัน</option>';
+  for (let d = 1; d <= 31; d++) {
+    const opt = document.createElement('option');
+    opt.value = d;
+    opt.textContent = `${d}`;
+    dEl.appendChild(opt);
+  }
+
+  mEl.innerHTML = '<option value="">เดือน</option>';
+  THAI_MONTHS_SHORT.forEach((mName, idx) => {
+    const opt = document.createElement('option');
+    opt.value = idx + 1;
+    opt.textContent = `${idx + 1}. ${mName} (${THAI_MONTHS_FULL[idx]})`;
+    mEl.appendChild(opt);
+  });
+
+  const currentYearBE = new Date().getFullYear() + 543;
+  yEl.innerHTML = '<option value="">ปี พ.ศ.</option>';
+  for (let y = currentYearBE; y >= 2470; y--) {
+    const opt = document.createElement('option');
+    opt.value = y;
+    opt.textContent = `พ.ศ. ${y}`;
+    yEl.appendChild(opt);
+  }
+}
+
+function syncThaiBirthDate(prefix) {
+  const dEl = document.getElementById(`${prefix}BirthDay`);
+  const mEl = document.getElementById(`${prefix}BirthMonth`);
+  const yEl = document.getElementById(`${prefix}BirthYearBE`);
+  const hiddenEl = document.getElementById(`${prefix}BirthDate`);
+  if (!dEl || !mEl || !yEl || !hiddenEl) return;
+
+  const day = dEl.value;
+  const month = mEl.value;
+  const yearBE = yEl.value;
+
+  if (day && month && yearBE) {
+    const yearAD = parseInt(yearBE, 10) - 543;
+    const isoDate = `${yearAD}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    hiddenEl.value = isoDate;
+  } else {
+    hiddenEl.value = '';
+  }
+
+  if (prefix === 'farmer') {
+    updateFarmerAgeDisplay();
+  } else if (prefix === 'pondFarmer') {
+    updatePondFarmerAgeDisplay();
+  }
+}
+
+function setThaiBirthDate(prefix, isoDateStr) {
+  const dEl = document.getElementById(`${prefix}BirthDay`);
+  const mEl = document.getElementById(`${prefix}BirthMonth`);
+  const yEl = document.getElementById(`${prefix}BirthYearBE`);
+  const hiddenEl = document.getElementById(`${prefix}BirthDate`);
+  if (!dEl || !mEl || !yEl || !hiddenEl) return;
+
+  hiddenEl.value = isoDateStr || '';
+
+  if (!isoDateStr) {
+    dEl.value = '';
+    mEl.value = '';
+    yEl.value = '';
+  } else {
+    const parts = isoDateStr.split('-');
+    if (parts.length === 3) {
+      const yearAD = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10);
+      const day = parseInt(parts[2], 10);
+      const yearBE = yearAD + 543;
+
+      dEl.value = String(day);
+      mEl.value = String(month);
+      yEl.value = String(yearBE);
+    }
+  }
+
+  if (prefix === 'farmer') {
+    updateFarmerAgeDisplay();
+  } else if (prefix === 'pondFarmer') {
+    updatePondFarmerAgeDisplay();
+  }
+}
+
+function formatThaiDate(isoDateStr) {
+  if (!isoDateStr) return '-';
+  const parts = isoDateStr.split('-');
+  if (parts.length !== 3) return isoDateStr;
+  const yearAD = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10);
+  const day = parseInt(parts[2], 10);
+  if (isNaN(yearAD) || isNaN(month) || isNaN(day) || month < 1 || month > 12) return isoDateStr;
+  const yearBE = yearAD + 543;
+  return `${day} ${THAI_MONTHS_SHORT[month - 1]} ${yearBE}`;
+}
+
+// --- Official Cascading Districts & Subdistricts Data ---
+const MAE_HONG_SON_DISTRICTS_DATA = {
+  'เมืองแม่ฮ่องสอน': ['จองคำ', 'ปางหมู', 'ผาบ่อง', 'หมอกจำแป่', 'ห้วยปูลิง', 'ห้วยผา', 'ห้วยโป่ง'],
+  'ขุนยวม': ['ขุนยวม', 'เมืองปอน', 'แม่กิ๊', 'แม่ยวมน้อย', 'แม่อูคอ', 'แม่เงา'],
+  'ปาย': ['เวียงใต้', 'เวียงเหนือ', 'แม่นาเติง', 'แม่ฮี้', 'ทุ่งยาว', 'เมืองแปง', 'โป่งสา'],
+  'แม่สะเรียง': ['แม่สะเรียง', 'บ้านกาศ', 'แม่ยวม', 'แม่คง', 'แม่เหาะ', 'เสาหิน', 'ป่าแป๋'],
+  'แม่ลาน้อย': ['แม่ลาน้อย', 'แม่ลาหลวง', 'ท่าผาปุ้ม', 'แม่โถ', 'ห้วยห้อม', 'แม่นาจาง', 'สันติคีรี', 'ขุนแม่ลาน้อย'],
+  'สบเมย': ['สบเมย', 'แม่คะตวน', 'กองก๋อย', 'แม่สวด', 'ป่าโปง', 'แม่สามแลบ'],
+  'ปางมะผ้า': ['สบป่อง', 'ปางมะผ้า', 'ถ้ำลอด', 'นาปู่ป้อม']
+};
+
+const SUPHAN_BURI_DISTRICTS_DATA = {
+  'เมืองสุพรรณบุรี': ['ท่าพี่เลี้ยง', 'รั้วใหญ่', 'ทับตีเหล็ก', 'ท่าระหัด', 'ไผ่ขวาง', 'โคกโคเฒ่า', 'ดอนกำยาน', 'ดอนมะสังข์', 'ดอนโพธิ์ทอง', 'โพธิ์พระยา', 'สนามคลี', 'สระแก้ว', 'ดอนเจดีย์'],
+  'ดอนเจดีย์': ['ดอนเจดีย์', 'หนองสาหร่าย', 'ไร่รถ', 'สระกระโจม', 'ทะเลบก'],
+  'สองพี่น้อง': ['สองพี่น้อง', 'บางตาเถร', 'บางเลน', 'บางตะเคียน', 'บ้านช้าง', 'บ้านกุ่ม', 'หัวโพธิ์', 'เนินพระปรางค์', 'บ่อสุพรรณ', 'ทุ่งคอก', 'ดอนมะนาว'],
+  'อู่ทอง': ['อู่ทอง', 'สระยายโสม', 'จรเข้สามพัน', 'บ้านโข้ง', 'เจดีย์', 'ดอนคา', 'พลับพลาไชย'],
+  'เดิมบางนางบวช': ['เขาพระ', 'เดิมบาง', 'นางบวช', 'เขาดิน', 'บ่อกรุ', 'ปากน้ำ', 'ทุ่งคลี', 'โคกช้าง'],
+  'ศรีประจันต์': ['ศรีประจันต์', 'บ้านกร่าง', 'มดแดง', 'บางงาม', 'ดอนปรู', 'ปลายนา', 'วังหว้า'],
+  'บางปลาม้า': ['โคกคราม', 'บางปลาม้า', 'ตะค่า', 'บางใหญ่', 'กฤษณา', 'สาลี', 'ไผ่กองดิน'],
+  'สามชุก': ['สามชุก', 'ย่านยาว', 'วังลึก', 'นางบวช', 'กระเสียว', 'หนองผักนาก', 'บ้านเชี่ยน'],
+  'หนองหญ้าไซ': ['หนองหญ้าไซ', 'หนองราชวัตร', 'หนองบัว', 'หนองโพธิ์', 'แจงงาม'],
+  'ด่านช้าง': ['ด่านช้าง', 'หนองมะค่าโมง', 'ห้วยขมิ้น', 'องค์พระ', 'วังคัน', 'นิคมกระเสียว']
+};
+
+function getDistrictDataForProvince(provinceName) {
+  if (provinceName && provinceName.includes('สุพรรณ')) {
+    return SUPHAN_BURI_DISTRICTS_DATA;
+  }
+  return MAE_HONG_SON_DISTRICTS_DATA;
+}
+
+function populateDistrictSelect(prefix, selectedDistrict = '', selectedSubdistrict = '', provinceName = 'แม่ฮ่องสอน') {
+  const distSelect = document.getElementById(`${prefix}District`);
+  const subdistSelect = document.getElementById(`${prefix}Subdistrict`);
+  if (!distSelect) return;
+
+  const data = getDistrictDataForProvince(provinceName);
+  const districtNames = Object.keys(data);
+
+  distSelect.innerHTML = '<option value="">-- เลือกอำเภอ --</option>';
+  districtNames.forEach(d => {
+    const opt = document.createElement('option');
+    opt.value = d;
+    opt.textContent = `อ.${d}`;
+    if (selectedDistrict) {
+      const clean = selectedDistrict.replace(/^อ\./, '').trim();
+      if (clean === d) opt.selected = true;
+    }
+    distSelect.appendChild(opt);
+  });
+
+  populateSubdistrictSelect(prefix, distSelect.value, selectedSubdistrict, provinceName);
+}
+
+function populateSubdistrictSelect(prefix, districtName, selectedSubdistrict = '', provinceName = 'แม่ฮ่องสอน') {
+  const subdistSelect = document.getElementById(`${prefix}Subdistrict`);
+  if (!subdistSelect) return;
+
+  const cleanDist = (districtName || '').replace(/^อ\./, '').trim();
+  const data = getDistrictDataForProvince(provinceName);
+  const subdistricts = data[cleanDist] || [];
+
+  if (subdistricts.length === 0) {
+    subdistSelect.innerHTML = '<option value="">-- กรุณาเลือกอำเภอก่อน --</option>';
+    subdistSelect.disabled = !cleanDist;
+    return;
+  }
+
+  subdistSelect.disabled = false;
+  subdistSelect.innerHTML = `<option value="">-- เลือกตำบล (${subdistricts.length} ตำบล) --</option>`;
+  subdistricts.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s;
+    opt.textContent = `ต.${s}`;
+    if (selectedSubdistrict) {
+      const cleanSub = selectedSubdistrict.replace(/^ต\./, '').trim();
+      if (cleanSub === s) opt.selected = true;
+    }
+    subdistSelect.appendChild(opt);
+  });
+}
+
+function onFarmerDistrictSelectChange(prefix) {
+  const distSelect = document.getElementById(`${prefix}District`);
+  const provSelect = document.getElementById(`${prefix}Province`);
+  const provName = provSelect ? provSelect.value : (activeProvince || 'แม่ฮ่องสอน');
+  populateSubdistrictSelect(prefix, distSelect ? distSelect.value : '', '', provName);
+}
+
+function onFarmerProvinceSelectChange(prefix) {
+  const provSelect = document.getElementById(`${prefix}Province`);
+  const provName = provSelect ? provSelect.value : (activeProvince || 'แม่ฮ่องสอน');
+  populateDistrictSelect(prefix, '', '', provName);
+}
+
+
 // 7. Farmer Modal & CRUD
 function calculateExactAge(birthDateStr) {
   if (!birthDateStr) return '';
@@ -2763,13 +3036,14 @@ function resetFarmerForm() {
   document.getElementById('farmerId').value = '';
   const citInp = document.getElementById('farmerCitizenId');
   if (citInp) { citInp.value = ''; handleCitizenIdInput(citInp); }
-  if (document.getElementById('farmerBirthDate')) document.getElementById('farmerBirthDate').value = '';
-  if (document.getElementById('farmerAgeDisplay')) document.getElementById('farmerAgeDisplay').value = '';
-  document.getElementById('farmerProvince').value = activeProvince || 'แม่ฮ่องสอน';
-  if (activeDistrict) {
-    document.getElementById('farmerDistrict').value = activeDistrict;
-  }
-  const scopeText = activeDistrict ? `อ.${activeDistrict} จ.${activeProvince}` : `จ.${activeProvince || 'แม่ฮ่องสอน'}`;
+  setThaiBirthDate('farmer', '');
+  document.getElementById('farmerPhone').value = '';
+  document.getElementById('farmerAddress').value = '';
+  const prov = activeProvince || 'แม่ฮ่องสอน';
+  const provEl = document.getElementById('farmerProvince');
+  if (provEl) provEl.value = prov;
+  populateDistrictSelect('farmer', activeDistrict || '', '', prov);
+  const scopeText = activeDistrict ? `อ.${activeDistrict} จ.${prov}` : `จ.${prov}`;
   document.getElementById('farmerFormTitle').innerHTML = `<i class="fa-solid fa-user-plus text-sky-600"></i> เพิ่มเกษตรกรรายใหม่ (พื้นที่ ${scopeText})`;
 }
 
@@ -2820,11 +3094,11 @@ function renderFarmerTable(customList) {
       <td class="p-3 text-slate-700">
         ${ageText ? `
           <div class="font-bold text-sky-800">${ageText}</div>
-          <div class="text-[10px] text-slate-400">เกิด: ${f.birth_date}</div>
+          <div class="text-[10px] text-slate-400">เกิด: ${formatThaiDate(f.birth_date)}</div>
         ` : '<span class="text-slate-300">-</span>'}
       </td>
       <td class="p-3 text-slate-600">
-        <div class="font-semibold text-slate-800"><i class="fa-solid fa-phone text-slate-400 mr-1 text-[10px]"></i>${f.phone || '-'}</div>
+        <div class="font-semibold text-slate-800"><i class="fa-solid fa-phone text-slate-400 mr-1 text-[10px]"></i>${formatPhoneNumber(f.phone) || '-'}</div>
         <div class="text-[10px] text-slate-400 mt-0.5">${addressDetails || '-'}</div>
       </td>
       <td class="p-3 text-center"><span class="px-2.5 py-1 bg-sky-50 text-sky-700 rounded-full font-bold text-xs border border-sky-100">${f.ponds_count}</span></td>
@@ -2877,15 +3151,13 @@ function editFarmer(farmerId) {
     citInput.value = formatCitizenId(f.citizen_id || '');
     handleCitizenIdInput(citInput);
   }
-  document.getElementById('farmerPhone').value = f.phone || '';
-  if (document.getElementById('farmerBirthDate')) {
-    document.getElementById('farmerBirthDate').value = f.birth_date || '';
-    updateFarmerAgeDisplay();
-  }
+  document.getElementById('farmerPhone').value = formatPhoneNumber(f.phone || '');
+  setThaiBirthDate('farmer', f.birth_date || '');
   document.getElementById('farmerAddress').value = f.address || '';
-  document.getElementById('farmerSubdistrict').value = f.subdistrict || '';
-  document.getElementById('farmerDistrict').value = f.district || '';
-  document.getElementById('farmerProvince').value = f.province || activeProvince || '';
+  const prov = f.province || activeProvince || 'แม่ฮ่องสอน';
+  const provEl = document.getElementById('farmerProvince');
+  if (provEl) provEl.value = prov;
+  populateDistrictSelect('farmer', f.district || '', f.subdistrict || '', prov);
   document.getElementById('farmerNotes').value = f.notes || '';
 
   document.getElementById('farmerFormTitle').innerHTML = `<i class="fa-solid fa-user-pen text-sky-600"></i> แก้ไขข้อมูลเกษตรกร: ${f.name}`;
@@ -2912,19 +3184,26 @@ async function saveFarmer(e) {
   formData.append('province', enteredProvince);
   formData.append('notes', document.getElementById('farmerNotes').value);
 
+  const submitBtn = document.querySelector('#farmerForm button[type="submit"]');
+  let origBtnHtml = '';
+  if (submitBtn) {
+    origBtnHtml = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังบันทึกข้อมูล...';
+  }
+
   try {
     const url = farmerId ? `/api/farmers/${farmerId}` : '/api/farmers';
     const method = farmerId ? 'PUT' : 'POST';
 
     const res = await fetch(url, { method: method, headers: getAdminHeaders(), body: formData });
     const result = await res.json();
-    if (!res.ok) throw new Error(result.detail || 'เกิดข้อผิดพลาด');
+    if (!res.ok) throw new Error(result.detail || 'เกิดข้อผิดพลาดในการบันทึกเกษตรกร');
 
     clearFarmerDraft();
     hideFarmerForm();
-    await loadFarmers();
-    await loadStats();
-    await loadProvincesList();
+    showToast(`✅ บันทึกข้อมูลเกษตรกร "${result.name || ''}" เรียบร้อยแล้ว!`, 'success');
+    await Promise.all([loadFarmers(), loadStats()]);
     renderFarmerTable();
 
     if (window._autoGoToPin) {
@@ -2941,6 +3220,11 @@ async function saveFarmer(e) {
     }
   } catch (err) {
     alert('ข้อผิดพลาด: ' + err.message);
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = origBtnHtml;
+    }
   }
 }
 
