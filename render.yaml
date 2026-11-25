@@ -1,3 +1,5 @@
+# Fish Farm GIS & Tracker Blueprint v2.1
+# Auto-sync with Postgres Sequence & Form Draft Persistence
 databases:
   - name: fish-farm-db
     databaseName: fishfarm
@@ -17,3 +19,5 @@ services:
         fromDatabase:
           name: fish-farm-db
           property: connectionString
+      - key: APP_VERSION
+        value: "2.1.0"
